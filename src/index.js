@@ -20,7 +20,7 @@ function remainingItems(session) {
 function formatRemaining(items) {
   if (!items.length) return '✅ Все позиции распределены'
   return '📋 <b>Нераспределено:</b>\n' + items.map(i =>
-    `• ${i.name}${i.qty > 1 ? ` x${i.qty}` : ''} — <b>${i.total.toFixed(2)} ₽</b>`
+    `• ${i.name}${i.qty !== 1 ? ` x${i.qty}` : ''} — <b>${i.total.toFixed(2)} ₽</b>${i.qty !== 1 ? ` (${i.unitPrice.toFixed(2)}₽/шт)` : ''}`
   ).join('\n')
 }
 
@@ -107,7 +107,7 @@ bot.on('photo', async ctx => {
     ctx.session.step = 'await_person'
 
     const itemsList = receipt.items.map(i =>
-      `• ${i.name}${i.qty > 1 ? ` x${i.qty}` : ''} — <b>${i.total.toFixed(2)} ₽</b>`
+      `• ${i.name}${i.qty !== 1 ? ` x${i.qty}` : ''} — <b>${i.total.toFixed(2)} ₽</b>${i.qty !== 1 ? ` (${i.unitPrice.toFixed(2)}₽/шт)` : ''}`
     ).join('\n')
 
     const surchargeInfo = receipt.surcharge > 0
@@ -150,7 +150,7 @@ bot.action('assign_done', async ctx => {
 
   const remainingSum = remaining.reduce((s, i) => s + i.total, 0)
   const remainingList = remaining.map(i =>
-    `• ${i.name}${i.qty > 1 ? ` x${i.qty}` : ''} — ${i.total.toFixed(2)} ₽`
+    `• ${i.name}${i.qty !== 1 ? ` x${i.qty}` : ''} — ${i.total.toFixed(2)} ₽${i.qty !== 1 ? ` (${i.unitPrice.toFixed(2)}₽/шт)` : ''}`
   ).join('\n')
 
   ctx.session.step = 'await_unassigned_mode'
@@ -295,7 +295,7 @@ bot.on('text', async ctx => {
     ctx.session.step = 'await_person'
 
     const itemsList = items.map(i =>
-      `• ${i.name}${i.qty > 1 ? ` x${i.qty}` : ''} — <b>${i.total.toFixed(2)} ₽</b>`
+      `• ${i.name}${i.qty !== 1 ? ` x${i.qty}` : ''} — <b>${i.total.toFixed(2)} ₽</b>${i.qty !== 1 ? ` (${i.unitPrice.toFixed(2)}₽/шт)` : ''}`
     ).join('\n')
     const surchargeInfo = surcharge > 0 ? `\n\n➕ Сервисный сбор: <b>${surcharge.toFixed(2)} ₽</b>` : ''
 
