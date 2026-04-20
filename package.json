@@ -1,0 +1,16 @@
+{
+  "name": "splitbot",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "https-proxy-agent": "^7.0.4",
+    "@anthropic-ai/sdk": "^0.27.0",
+    "node-fetch": "^3.3.2"
+  }
+}
