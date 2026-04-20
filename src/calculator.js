@@ -1,45 +1,77 @@
 /**
- * Рассчитывает итоговые долги между участниками.
- *
- * @param {Array}  items    — позиции чека: [{ name, price, participants: ['Иван','Маша'] }]
- * @param {number} surcharge — доп. сумма сверху (сервисный сбор, чаевые) или 0
- * @returns {{ totals: Object, debts: Array, grandTotal: number }}
+ * Добавляет позиции участника к его итогу.
+ * assignments: { person -> [itemName] }
+ * items: [{ name, qty, unitPrice, total }]
+ * unassigned: позиции не назначенные никому
  */
-export function calculate(items, surcharge = 0) {
-  // 1. Считаем сколько каждый должен по позициям
+export function buildTotals(items, assignments, unassignedMode, allPeople) {
   const totals = {}
 
-  for (const item of items) {
-    const share = item.price / item.participants.length
-    for (const person of item.participants) {
-      totals[person] = (totals[person] || 0) + share
+  // Инициализируем всех участников
+  for (const person of allPeople) totals[person] = 0
+
+  // Назначенные позиции
+  for (const [person, itemNames] of Object.entries(assignments)) {
+    for (const itemName of itemNames) {
+      const item = items.find(i => i.name === itemName)
+      if (item) totals[person] = (totals[person] || 0) + item.total
     }
   }
 
-  // 2. Пропорционально добавляем сервисный сбор
-  const baseTotal = Object.values(totals).reduce((s, v) => s + v, 0)
-  if (surcharge > 0 && baseTotal > 0) {
-    for (const person of Object.keys(totals)) {
-      totals[person] += surcharge * (totals[person] / baseTotal)
+  // Нераспределённые позиции
+  const assignedNames = Object.values(assignments).flat()
+  const unassigned = items.filter(i => !assignedNames.includes(i.name))
+  const unassignedSum = unassigned.reduce((s, i) => s + i.total, 0)
+
+  if (unassignedSum > 0 && allPeople.length > 0) {
+    if (unassignedMode === 'equal') {
+      // Поровну по количеству людей
+      const share = unassignedSum / allPeople.length
+      for (const person of allPeople) totals[person] = (totals[person] || 0) + share
+    } else {
+      // Пропорционально текущей сумме каждого
+      const assignedTotal = Object.values(totals).reduce((s, v) => s + v, 0)
+      if (assignedTotal > 0) {
+        for (const person of allPeople) {
+          totals[person] = (totals[person] || 0) + unassignedSum * ((totals[person] || 0) / assignedTotal)
+        }
+      } else {
+        // Если у всех 0 — делим поровну
+        const share = unassignedSum / allPeople.length
+        for (const person of allPeople) totals[person] = (totals[person] || 0) + share
+      }
     }
   }
 
-  // 3. Округляем до 2 знаков
+  // Округляем
   for (const person of Object.keys(totals)) {
     totals[person] = Math.round(totals[person] * 100) / 100
   }
 
-  const grandTotal = Object.values(totals).reduce((s, v) => s + v, 0)
+  return totals
+}
 
-  return { totals, grandTotal: Math.round(grandTotal * 100) / 100 }
+/**
+ * Добавляет чаевые пропорционально доле каждого.
+ */
+export function addTips(totals, tipsAmount) {
+  const base = Object.values(totals).reduce((s, v) => s + v, 0)
+  const result = { ...totals }
+  if (base > 0) {
+    for (const person of Object.keys(result)) {
+      result[person] = Math.round((result[person] + tipsAmount * (result[person] / base)) * 100) / 100
+    }
+  }
+  return result
 }
 
 /**
  * Форматирует итог для Telegram (HTML).
  * payer — кто уже оплатил весь чек (опционально).
  */
-export function formatResult({ totals, grandTotal }, payer = null) {
-  const lines = ['💳 <b>Итог разбивки:</b>\n']
+export function formatResult(totals, payer = null) {
+  const grandTotal = Object.values(totals).reduce((s, v) => s + v, 0)
+  const lines = ['💳 <b>Итог:</b>\n']
 
   const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1])
   for (const [person, amount] of sorted) {
@@ -47,14 +79,13 @@ export function formatResult({ totals, grandTotal }, payer = null) {
     lines.push(`👤 ${person}: <b>${amount.toFixed(2)} ₽</b>${marker}`)
   }
 
-  lines.push(`\n🧾 <b>Итого: ${grandTotal.toFixed(2)} ₽</b>`)
+  lines.push(`\n🧾 <b>Итого: ${Math.round(grandTotal * 100) / 100} ₽</b>`)
 
   if (payer && totals[payer] !== undefined) {
-    lines.push('\n<b>Кто кому должен:</b>')
+    lines.push('\n<b>Долги:</b>')
     for (const [person, amount] of sorted) {
       if (person !== payer) {
-        const debt = Math.round((amount) * 100) / 100
-        lines.push(`  └ ${person} → ${payer}: <b>${debt.toFixed(2)} ₽</b>`)
+        lines.push(`  └ ${person} → ${payer}: <b>${amount.toFixed(2)} ₽</b>`)
       }
     }
   }
